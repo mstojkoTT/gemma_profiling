@@ -1,0 +1,4 @@
+[submodule "transformers"]
+	path = transformers
+	url = https://github.com/mstojkoTT/transformers_gemma_profile
+	branch = main

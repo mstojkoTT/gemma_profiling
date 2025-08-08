@@ -1,0 +1,4 @@
+-e ./transformers
+torch
+pillow
+accelerate

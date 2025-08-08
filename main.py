@@ -13,7 +13,11 @@ import profiling_custom
 
 model_id = "google/gemma-3-27b-it"
 
-os.environ["HF_TOKEN"] = "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"
+def read_first_line(path):
+    with open(path, 'r') as f:
+        return f.readline().rstrip('\n')
+
+os.environ["HF_TOKEN"] = read_first_line("hf_token.txt")
 
 model = Gemma3ForConditionalGeneration.from_pretrained(
     model_id, device_map="auto"
