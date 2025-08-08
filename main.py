@@ -20,11 +20,13 @@ def read_first_line(path):
 
 os.environ["HF_TOKEN"] = read_first_line("hf_token.txt")
 
+print(read_first_line("hf_token.txt"))
+
 model = Gemma3ForConditionalGeneration.from_pretrained(
     model_id, device_map="auto"
 ).eval()
 
-processor = AutoProcessor.from_pretrained(model_id, do_fast=True) # do_fast is here
+processor = AutoProcessor.from_pretrained(model_id) # do_fast is here
 
 messages = [
     {

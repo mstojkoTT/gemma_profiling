@@ -2,3 +2,4 @@
 torch
 pillow
 accelerate
+line-profiler
