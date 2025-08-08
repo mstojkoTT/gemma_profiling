@@ -10,6 +10,11 @@ python3 -m venv .venv
 source .venv/bin/activate
 
 pip install -r requirements.txt
+```
+
+Now put your HF token in `hf_token.txt`
+
+```
 
 ./profile.sh
 ```

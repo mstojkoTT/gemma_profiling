@@ -3,3 +3,5 @@ torch
 pillow
 accelerate
 line-profiler
+torchvision
+sentencepiece
