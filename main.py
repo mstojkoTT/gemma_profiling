@@ -69,9 +69,6 @@ import profiling_custom
 
 import sys, traceback
 
-
-
-
 model_id = "google/gemma-3-12b-it"
 
 def read_first_line(path):
@@ -83,10 +80,10 @@ os.environ["HF_TOKEN"] = read_first_line("hf_token.txt")
 print(read_first_line("hf_token.txt"))
 
 model = Gemma3ForConditionalGeneration.from_pretrained(
-    model_id, device_map="cuda:0"
+    model_id, device_map="cpu"
 ).eval()
 
-processor = AutoProcessor.from_pretrained(model_id, use_fast=True) # use_fast is here
+processor = AutoProcessor.from_pretrained(model_id, use_fast=False) # use_fast is here
 
 messages = [
     {
@@ -96,17 +93,16 @@ messages = [
     {
         "role": "user",
         "content": [
-            {"type": "image", "image": "https://s1.1zoom.me/big3/229/375981-alexfas01.jpg"},
+            {"type": "image", "image": "/home/ttuser/mstojko/gemma_profiling/picture.jpg"},
             {"type": "text", "text": "Describe this image in detail."}
         ]
     }
 ]
-# https://s1.1zoom.me/big3/229/375981-alexfas01.jpg
 
 t0 = time.perf_counter()
 
-for k, v in model.named_parameters():
-    assert 'cuda' in str(v.device)
+# for k, v in model.named_parameters():
+#     assert 'cuda' in str(v.device)
 
 inputs = processor.apply_chat_template(
     messages, add_generation_prompt=True, tokenize=True,
@@ -128,6 +124,8 @@ print()
 print()
 
 print(f'{time_to_first_token=}')
+image_loading_time = profiling_custom.image_loading_end - profiling_custom.image_loading_starting
+print('time to first token without image loading time (from disk): ', time_to_first_token - image_loading_time)
 
 print()
 print()
