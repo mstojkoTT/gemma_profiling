@@ -1,3 +1,58 @@
+"""
+import sys, os, io, traceback
+
+_THIS_FILE = os.path.abspath(__file__)
+
+class AnnotatedStream(io.TextIOBase):
+    def __init__(self, orig):
+        self._orig = orig
+        self._buf = ""
+
+    def writable(self): return True
+
+    def write(self, s):
+        # Buffer until newline to avoid breaking partial writes
+        self._buf += s
+        out = []
+        while True:
+            if "\n" not in self._buf:
+                break
+            line, self._buf = self._buf.split("\n", 1)
+            prefix = self._loc()
+            out.append(f"[{prefix}] {line}\n")
+        if out:
+            # IMPORTANT: write to the original stream to avoid recursion
+            self._orig.write("".join(out))
+        return len(s)
+
+    def flush(self):
+        if self._buf:
+            self._orig.write(f"[{self._loc()}] {self._buf}")
+            self._buf = ""
+        self._orig.flush()
+
+    def _loc(self):
+        # Find the first frame that's not in this file
+        # (print() is C, so the next Python frame is usually the caller)
+        stack = traceback.extract_stack(limit=50)
+        for frame in reversed(stack[:-1]):  # skip current frame
+            fname = os.path.abspath(frame.filename)
+            if fname != _THIS_FILE:
+                # make path short-ish
+                try:
+                    rel = os.path.relpath(fname)
+                except Exception:
+                    rel = fname
+                return f"{rel}:{frame.lineno}"
+        return "?:?"
+
+# Wrap both stdout and stderr
+sys.stdout = AnnotatedStream(sys.__stdout__)
+sys.stderr = AnnotatedStream(sys.__stderr__)
+"""
+
+
+
 import time
 import sys
 import os
@@ -12,7 +67,12 @@ import profiling_custom
 
 import profiling_custom
 
-model_id = "google/gemma-3-27b-it"
+import sys, traceback
+
+
+
+
+model_id = "google/gemma-3-12b-it"
 
 def read_first_line(path):
     with open(path, 'r') as f:
@@ -23,7 +83,7 @@ os.environ["HF_TOKEN"] = read_first_line("hf_token.txt")
 print(read_first_line("hf_token.txt"))
 
 model = Gemma3ForConditionalGeneration.from_pretrained(
-    model_id, device_map="auto"
+    model_id, device_map="cuda:0"
 ).eval()
 
 processor = AutoProcessor.from_pretrained(model_id, use_fast=True) # use_fast is here
@@ -45,15 +105,15 @@ messages = [
 
 t0 = time.perf_counter()
 
+for k, v in model.named_parameters():
+    assert 'cuda' in str(v.device)
+
 inputs = processor.apply_chat_template(
     messages, add_generation_prompt=True, tokenize=True,
     return_dict=True, return_tensors="pt"
 ).to(model.device, dtype=torch.bfloat16)
 
 input_len = inputs["input_ids"].shape[-1]
-
-# print("Thread ID:", threading.get_ident())
-# print("Thread Name:", threading.current_thread().name)
 
 with torch.inference_mode():
     generation = model.generate(**inputs, max_new_tokens=1, do_sample=False)
