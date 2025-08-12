@@ -5,3 +5,5 @@ accelerate
 line-profiler
 torchvision
 sentencepiece
+pandas
+tabulate
