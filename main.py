@@ -17,27 +17,38 @@ import profiling_custom
 
 import sys, traceback
 
+from chat_dataset import get_random_message
+
 def get_model_vram_size(model):
     param_size = sum(p.numel() * p.element_size() for p in model.parameters())
     buffer_size = sum(b.numel() * b.element_size() for b in model.buffers())
     total_size = param_size + buffer_size  # in bytes
     return total_size / (1024 ** 2)  # MB
 
-def do_profile(model_variant, device, use_fast, dtype, nr_iterations):
+def do_profile(model_variant, device, use_fast, dtype, nr_iterations, nr_warmup_iterations):
+
+    if device != "cpu":
+        refresh_gpu_cuda()
+
     avg_times = defaultdict(lambda: 0)
 
     for _ in range(nr_iterations):
-        individual_times = do_profile_individual(model_variant=model_variant, device=device, use_fast=use_fast, dtype=dtype)
+        individual_times = do_profile_individual(model_variant=model_variant, device=device, use_fast=use_fast, dtype=dtype, nr_warmup_iterations=nr_warmup_iterations)
         for k, v in individual_times.items():
             avg_times[k] += v
     
     for k, v in avg_times.items():
         avg_times[k] = avg_times[k] / nr_iterations
     
+    if device != "cpu":
+        refresh_gpu_cuda()
+    
     return avg_times
         
 
-def do_profile_individual(model_variant, device, use_fast, dtype):
+def do_profile_individual(model_variant, device, use_fast, dtype, nr_warmup_iterations):
+
+    torch.backends.cudnn.benchmark = True
 
     model_id = "google/gemma-3-" + model_variant + "-it"
 
@@ -90,36 +101,27 @@ def do_profile_individual(model_variant, device, use_fast, dtype):
 
     # print(type_dict)
 
-    messages = [
-        {
-            "role": "system",
-            "content": [{"type": "text", "text": "You are a helpful assistant."}]
-        },
-        {
-            "role": "user",
-            "content": [
-                {"type": "image", "image": "/home/ttuser/mstojko/gemma_profiling/picture.jpg"},
-                {"type": "text", "text": "Describe this image in detail."}
-            ]
-        }
-    ]
+    model = torch.compile(model, mode="reduce-overhead", fullgraph=False)
 
-    t0 = time.perf_counter()
+    for _ in range(nr_warmup_iterations):
 
-    inputs = processor.apply_chat_template(
-        messages, add_generation_prompt=True, tokenize=True,
-        return_dict=True, return_tensors="pt"
-    ).to(device, dtype=dtype)
+        messages = get_random_message()
 
-    input_len = inputs["input_ids"].shape[-1]
+        t0 = profiling_custom.get_time()
 
-    with torch.inference_mode():
-        generation = model.generate(**inputs, max_new_tokens=1, do_sample=False)
-        generation = generation[0][input_len:]
+        inputs = processor.apply_chat_template(
+            messages, add_generation_prompt=True, tokenize=True,
+            return_dict=True, return_tensors="pt"
+        ).to(device, dtype=dtype)
 
-    time_to_first_token_with_img_load = time.perf_counter() - t0
+        input_len = inputs["input_ids"].shape[-1]
 
+        with torch.no_grad():
+            with torch.inference_mode():
+                generation = model.generate(**inputs, max_new_tokens=1, do_sample=False)
+                generation = generation[0][input_len:]
 
+    time_to_first_token_with_img_load = profiling_custom.get_time() - t0
 
     print()
     print()
@@ -174,14 +176,27 @@ def do_profile_individual(model_variant, device, use_fast, dtype):
     return ret_dict
 
 def refresh_gpu_cuda():
+
     torch.cuda.synchronize()
     torch.cuda.empty_cache()
     torch.cuda.ipc_collect()
     gc.collect()
 
-# ret_dict = do_profile(model_variant='27b', device='cuda', use_fast=True, dtype=torch.bfloat16)
+    if torch.cuda.is_available():
+        torch.cuda.synchronize()
 
-NR_ITERATIONS = 3
+
+def profiling_fn():
+
+    if torch.cuda.is_available():
+        torch.cuda.synchronize()
+
+    return time.perf_counter()
+
+profiling_custom.get_time = profiling_fn
+
+NR_ITERATIONS = 1
+NR_WARMUP_ITERATIONS = 10
 
 tables = dict()
 nan_ret_dict = dict()
@@ -189,21 +204,19 @@ for model_variant in ['4b']:
 # for model_variant in ['4b', '27b', '12b']:
 # for model_variant in ['4b', '27b']:
 
-    for dtype in [torch.bfloat16, torch.float32]:
+    # for dtype in [torch.bfloat16, torch.float32]:
+    for dtype in [torch.bfloat16]:
         rows = []
 
-        for use_fast in [False, True]:
+        for use_fast in [True, False]:
             for device in ['cuda', 'cpu']:
+                # for timing_backend in [time.perf_counter, ]
                 if dtype == torch.float32 and model_variant == '27b':
                     ret_dict = defaultdict(lambda: float('nan'))
                 else:
 
                     # to avoid running out of vram
-                    refresh_gpu_cuda()
-
-                    ret_dict = do_profile(model_variant=model_variant, device=device, use_fast=use_fast, dtype=dtype, nr_iterations=NR_ITERATIONS)
-
-                    refresh_gpu_cuda()
+                    ret_dict = do_profile(model_variant=model_variant, device=device, use_fast=use_fast, dtype=dtype, nr_iterations=NR_ITERATIONS, nr_warmup_iterations=NR_WARMUP_ITERATIONS)
 
                     if len(nan_ret_dict) == 0:
                         nan_ret_dict = {k: float('nan') for k, _ in ret_dict.items()}
