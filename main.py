@@ -223,9 +223,8 @@ for model_variant in ['27b', '4b', '12b']:
                         nan_ret_dict = {k: float('nan') for k, _ in ret_dict.items()}
 
                 rows.append({
-                    # "Config": f"{device} use_fast={use_fast} {str(dtype)[6:]}",
                     "Config": f"{device} use_fast={use_fast}",
-                    **ret_dict
+                    **{k: f"{v:.3g}" for k, v in ret_dict.items()}
                 })
 
         df = pd.DataFrame(rows)
