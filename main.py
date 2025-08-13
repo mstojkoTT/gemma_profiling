@@ -5,6 +5,7 @@ import os
 sys.path.append(os.getcwd())
 from collections import defaultdict
 import pandas as pd
+import numpy as np
 
 import threading
 from transformers import AutoProcessor, Gemma3ForConditionalGeneration
@@ -27,26 +28,25 @@ def get_model_vram_size(model):
 
 def do_profile(model_variant, device, use_fast, dtype, nr_iterations, nr_warmup_iterations):
 
-    if device != "cpu":
-        refresh_gpu_cuda()
-
-    avg_times = defaultdict(lambda: 0)
+    total_times = defaultdict(lambda: [])
 
     for _ in range(nr_iterations):
         individual_times = do_profile_individual(model_variant=model_variant, device=device, use_fast=use_fast, dtype=dtype, nr_warmup_iterations=nr_warmup_iterations)
         for k, v in individual_times.items():
-            avg_times[k] += v
+            total_times[k].append(v)
     
-    for k, v in avg_times.items():
-        avg_times[k] = avg_times[k] / nr_iterations
-    
-    if device != "cpu":
-        refresh_gpu_cuda()
-    
-    return avg_times
+    ret_times = dict()
+    for k, v in total_times.items():
+        max_dist = max(abs(x - np.median(v)) for x in v)
+        ret_times[k] = float(np.median(v)), float(np.std(v)), float(max_dist)
+
+    return ret_times
         
 
 def do_profile_individual(model_variant, device, use_fast, dtype, nr_warmup_iterations):
+
+    if device != "cpu":
+        refresh_gpu_cuda()
 
     torch.backends.cudnn.benchmark = True
 
@@ -195,17 +195,18 @@ def profiling_fn():
 
 profiling_custom.get_time = profiling_fn
 
-NR_ITERATIONS = 1
+NR_ITERATIONS = 10
 NR_WARMUP_ITERATIONS = 10
 
 tables = dict()
 nan_ret_dict = dict()
-for model_variant in ['4b']:
+# for model_variant in ['4b']:
 # for model_variant in ['4b', '27b', '12b']:
+for model_variant in ['27b', '4b', '12b']:
 # for model_variant in ['4b', '27b']:
 
-    # for dtype in [torch.bfloat16, torch.float32]:
-    for dtype in [torch.bfloat16]:
+    for dtype in [torch.bfloat16, torch.float32]:
+    # for dtype in [torch.bfloat16]:
         rows = []
 
         for use_fast in [True, False]:
@@ -235,7 +236,7 @@ for model_variant in ['4b']:
 
 output_file = "table.md"
 with open(output_file, "w") as f:
-    f.write('Runs to average each datapoint: {}\n'.format(NR_ITERATIONS))
+    f.write('Runs to average/median each datapoint: {}\n'.format(NR_ITERATIONS))
     for k, v in tables.items():
         f.write("## " + k + "\n")
         f.write(v + "\n\n")
