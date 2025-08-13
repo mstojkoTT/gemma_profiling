@@ -225,7 +225,7 @@ def main():
 
                     rows.append({
                         "Config": f"{device} use_fast={use_fast}",
-                        **{k: f"{v:.3g}" for k, v in ret_dict.items()}
+                        **{k: f"{v[0]:.3g} {v[1]:.3g} {v[2]:.3g}" for k, v in ret_dict.items()}
                     })
 
             df = pd.DataFrame(rows)
@@ -237,6 +237,7 @@ def main():
     output_file = "table.md"
     with open(output_file, "w") as f:
         f.write('Runs to average/median each datapoint: {}\n'.format(NR_ITERATIONS))
+        f.write('Nr warmup runs: {}\n'.format(NR_WARMUP_ITERATIONS))
         for k, v in tables.items():
             f.write("## " + k + "\n")
             f.write(v + "\n\n")
@@ -244,13 +245,9 @@ def main():
     assert NR_ITERATIONS >= 5
 
 
-<<<<<<< Updated upstream
-main()
-# do_profile_individual('4b', 'cpu', use_fast=True, dtype=torch.bfloat16, nr_warmup_iterations=0)
-=======
 os.environ["HF_TOKEN"] = read_first_line("hf_token.txt")
 print(read_first_line("hf_token.txt"))
 
 
-do_profile_individual('4b', 'cpu', use_fast=True, dtype=torch.bfloat16, nr_warmup_iterations=0)
->>>>>>> Stashed changes
+main()
+# do_profile_individual('4b', 'cpu', use_fast=True, dtype=torch.bfloat16, nr_warmup_iterations=0)
