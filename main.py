@@ -141,6 +141,9 @@ def do_profile_individual(model_variant, device, use_fast, dtype, nr_warmup_iter
     image_processing_time = profiling_custom.post_image_processing_time - profiling_custom.pre_image_processing_time
     print('image processing time:', image_processing_time)
 
+    image_processing_time_with_overhead = profiling_custom.preprocessing_with_overhead_end - profiling_custom.pre_image_processing_time
+    print(f'{image_processing_time_with_overhead=}')
+
 
     print()
     print()
@@ -168,7 +171,8 @@ def do_profile_individual(model_variant, device, use_fast, dtype, nr_warmup_iter
         'text model prefill' : llm_time,
         'preproc./ttft [%]': ratio,
         'img. enc. tower time': profiling_custom.vision_tower_time,
-        'img. enc. multi-modal projector time': profiling_custom.multi_modal_projector_time
+        'img. enc. multi-modal projector time': profiling_custom.multi_modal_projector_time,
+        'preproc. / preproc. with overhead' : image_processing_time / image_processing_time_with_overhead * 100,
     }
 
     ret_dict = {k + ' [s]' if k != 'preproc./ttft [%]' else k: v for k, v in ret_dict.items()}
@@ -198,14 +202,14 @@ def profiling_fn():
 profiling_custom.get_time = profiling_fn
 
 def main():
-    NR_ITERATIONS = 10
-    NR_WARMUP_ITERATIONS = 10
+    NR_ITERATIONS = 3
+    NR_WARMUP_ITERATIONS = 3
 
     tables = dict()
     nan_ret_dict = dict()
-    # for model_variant in ['4b']:
+    for model_variant in ['4b']:
     # for model_variant in ['4b', '27b', '12b']:
-    for model_variant in ['27b', '4b', '12b']:
+    # for model_variant in ['27b', '4b', '12b']:
     # for model_variant in ['4b', '27b']:
 
         for dtype in [torch.bfloat16, torch.float32]:
@@ -248,4 +252,5 @@ def main():
     assert NR_ITERATIONS >= 5
 
 
-do_profile_individual('4b', 'cpu', use_fast=True, dtype=torch.bfloat16, nr_warmup_iterations=0)
+main()
+# do_profile_individual('4b', 'cpu', use_fast=True, dtype=torch.bfloat16, nr_warmup_iterations=0)

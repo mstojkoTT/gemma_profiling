@@ -3,8 +3,8 @@
 ## Reproduce steps
 
 ```
-git clone --recurse-submodules https://github.com/mstojkoTT/transformers_gemma_profile
-cd transformers_gemma_profile
+git clone --recurse-submodules https://github.com/mstojkoTT/gemma_profiling
+cd gemma_profiling
 
 python3 -m venv .venv
 source .venv/bin/activate

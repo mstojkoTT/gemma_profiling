@@ -1,2 +1,0 @@
-kernprof -l -v main.py
-
