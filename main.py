@@ -43,6 +43,19 @@ def do_profile(model_variant, device, use_fast, dtype, nr_iterations, nr_warmup_
     return ret_times
         
 
+def get_gpu_usage(prefix):
+    if torch.cuda.is_available():
+        free, total = torch.cuda.mem_get_info()
+        print(f"{prefix} - Free: {free / 1024**2:.2f} MB")
+        print(f"{prefix} - Used: {(total - free) / 1024**2:.2f} MB")
+        print(f"{prefix} - Total: {total / 1024**2:.2f} MB")
+        print()
+        print()
+
+def read_first_line(path):
+    with open(path, 'r') as f:
+        return f.readline().rstrip('\n')
+
 def do_profile_individual(model_variant, device, use_fast, dtype, nr_warmup_iterations):
 
     if device != "cpu":
@@ -52,38 +65,17 @@ def do_profile_individual(model_variant, device, use_fast, dtype, nr_warmup_iter
 
     model_id = "google/gemma-3-" + model_variant + "-it"
 
-    free, total = torch.cuda.mem_get_info()
-    print(f"Before model load - Free: {free / 1024**2:.2f} MB")
-    print(f"Before model load - Used: {(total - free) / 1024**2:.2f} MB")
-    print(f"Before model load - Total: {total / 1024**2:.2f} MB")
-
-    def read_first_line(path):
-        with open(path, 'r') as f:
-            return f.readline().rstrip('\n')
-
-    os.environ["HF_TOKEN"] = read_first_line("hf_token.txt")
-
-    print(read_first_line("hf_token.txt"))
+    get_gpu_usage("Before loading model")
 
     model = Gemma3ForConditionalGeneration.from_pretrained(
         model_id, device_map=device, torch_dtype=dtype,
     ).eval()
 
-    free, total = torch.cuda.mem_get_info()
-    print()
-    print()
-    print(f"Before preprocessing - Free: {free / 1024**2:.2f} MB")
-    print(f"Before preprocessing - Used: {(total - free) / 1024**2:.2f} MB")
-    print(f"Before preprocessing - Total: {total / 1024**2:.2f} MB")
+    get_gpu_usage("After loading model")
 
     processor = AutoProcessor.from_pretrained(model_id, use_fast=use_fast) # use_fast is here
 
-    free, total = torch.cuda.mem_get_info()
-    print()
-    print()
-    print(f"After preprocessing - Free: {free / 1024**2:.2f} MB")
-    print(f"After preprocessing - Used: {(total - free) / 1024**2:.2f} MB")
-    print(f"After preprocessing - Total: {total / 1024**2:.2f} MB")
+    get_gpu_usage("After loading processor")
 
     for k, v in model.named_parameters():
         assert device in str(v.device)
@@ -252,5 +244,13 @@ def main():
     assert NR_ITERATIONS >= 5
 
 
+<<<<<<< Updated upstream
 main()
 # do_profile_individual('4b', 'cpu', use_fast=True, dtype=torch.bfloat16, nr_warmup_iterations=0)
+=======
+os.environ["HF_TOKEN"] = read_first_line("hf_token.txt")
+print(read_first_line("hf_token.txt"))
+
+
+do_profile_individual('4b', 'cpu', use_fast=True, dtype=torch.bfloat16, nr_warmup_iterations=0)
+>>>>>>> Stashed changes

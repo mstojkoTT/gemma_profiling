@@ -1,11 +1,14 @@
 import random
+import os
+
+picture_dir = os.path.join(os.getcwd(), "pictures")
 
 def get_random_message():
     img_idx = random.randint(0, 9)
     chat_idx = random.randint(0, 9)
 
     ret = messages_list[chat_idx]
-    ret[1]["content"][0]["image"] = f"/home/ttuser/mstojko/gemma_profiling/pictures/picture{img_idx}.jpg"
+    ret[1]["content"][0]["image"] = os.path.join(picture_dir, f"picture{img_idx}.jpg")
 
     return ret
 
