@@ -103,7 +103,7 @@ def do_profile_individual(model_variant, device, use_fast, dtype, nr_warmup_iter
 
     model = torch.compile(model, mode="reduce-overhead", fullgraph=False)
 
-    for _ in range(nr_warmup_iterations):
+    for _ in range(nr_warmup_iterations+1):
 
         messages = get_random_message()
 
@@ -177,9 +177,11 @@ def do_profile_individual(model_variant, device, use_fast, dtype, nr_warmup_iter
 
 def refresh_gpu_cuda():
 
-    torch.cuda.synchronize()
-    torch.cuda.empty_cache()
-    torch.cuda.ipc_collect()
+    if torch.cuda.is_available():
+        torch.cuda.synchronize()
+        torch.cuda.empty_cache()
+        torch.cuda.ipc_collect()
+
     gc.collect()
 
     if torch.cuda.is_available():
@@ -195,49 +197,55 @@ def profiling_fn():
 
 profiling_custom.get_time = profiling_fn
 
-NR_ITERATIONS = 10
-NR_WARMUP_ITERATIONS = 10
+def main():
+    NR_ITERATIONS = 10
+    NR_WARMUP_ITERATIONS = 10
 
-tables = dict()
-nan_ret_dict = dict()
-# for model_variant in ['4b']:
-# for model_variant in ['4b', '27b', '12b']:
-for model_variant in ['27b', '4b', '12b']:
-# for model_variant in ['4b', '27b']:
+    tables = dict()
+    nan_ret_dict = dict()
+    # for model_variant in ['4b']:
+    # for model_variant in ['4b', '27b', '12b']:
+    for model_variant in ['27b', '4b', '12b']:
+    # for model_variant in ['4b', '27b']:
 
-    for dtype in [torch.bfloat16, torch.float32]:
-    # for dtype in [torch.bfloat16]:
-        rows = []
+        for dtype in [torch.bfloat16, torch.float32]:
+        # for dtype in [torch.bfloat16]:
+            rows = []
 
-        for use_fast in [True, False]:
-            for device in ['cuda', 'cpu']:
-                # for timing_backend in [time.perf_counter, ]
-                if dtype == torch.float32 and model_variant == '27b':
-                    ret_dict = defaultdict(lambda: float('nan'))
-                else:
+            for use_fast in [True, False]:
+                for device in ['cuda', 'cpu']:
 
-                    # to avoid running out of vram
-                    ret_dict = do_profile(model_variant=model_variant, device=device, use_fast=use_fast, dtype=dtype, nr_iterations=NR_ITERATIONS, nr_warmup_iterations=NR_WARMUP_ITERATIONS)
+                    if device == 'cuda' and torch.cuda.is_available() == False:
+                        continue
 
-                    if len(nan_ret_dict) == 0:
-                        nan_ret_dict = {k: float('nan') for k, _ in ret_dict.items()}
+                    if dtype == torch.float32 and model_variant == '27b':
+                        ret_dict = defaultdict(lambda: float('nan'))
+                    else:
+                        # to avoid running out of vram
+                        ret_dict = do_profile(model_variant=model_variant, device=device, use_fast=use_fast, dtype=dtype, nr_iterations=NR_ITERATIONS, nr_warmup_iterations=NR_WARMUP_ITERATIONS)
 
-                rows.append({
-                    "Config": f"{device} use_fast={use_fast}",
-                    **{k: f"{v:.3g}" for k, v in ret_dict.items()}
-                })
+                        if len(nan_ret_dict) == 0:
+                            nan_ret_dict = {k: float('nan') for k, _ in ret_dict.items()}
 
-        df = pd.DataFrame(rows)
+                    rows.append({
+                        "Config": f"{device} use_fast={use_fast}",
+                        **{k: f"{v:.3g}" for k, v in ret_dict.items()}
+                    })
 
-        # Convert to clean markdown
-        markdown_table = df.to_markdown(index=False)
-        tables[model_variant + ' ' + str(dtype)[6:]] = markdown_table
+            df = pd.DataFrame(rows)
 
-output_file = "table.md"
-with open(output_file, "w") as f:
-    f.write('Runs to average/median each datapoint: {}\n'.format(NR_ITERATIONS))
-    for k, v in tables.items():
-        f.write("## " + k + "\n")
-        f.write(v + "\n\n")
+            # Convert to clean markdown
+            markdown_table = df.to_markdown(index=False)
+            tables[model_variant + ' ' + str(dtype)[6:]] = markdown_table
 
-assert NR_ITERATIONS >= 5
+    output_file = "table.md"
+    with open(output_file, "w") as f:
+        f.write('Runs to average/median each datapoint: {}\n'.format(NR_ITERATIONS))
+        for k, v in tables.items():
+            f.write("## " + k + "\n")
+            f.write(v + "\n\n")
+
+    assert NR_ITERATIONS >= 5
+
+
+do_profile_individual('4b', 'cpu', use_fast=True, dtype=torch.bfloat16, nr_warmup_iterations=0)
