@@ -194,14 +194,14 @@ def profiling_fn():
 profiling_custom.get_time = profiling_fn
 
 def main():
-    NR_ITERATIONS = 3
-    NR_WARMUP_ITERATIONS = 3
+    NR_ITERATIONS = 10
+    NR_WARMUP_ITERATIONS = 10
 
     tables = dict()
     nan_ret_dict = dict()
-    for model_variant in ['4b']:
+    # for model_variant in ['4b']:
     # for model_variant in ['4b', '27b', '12b']:
-    # for model_variant in ['27b', '4b', '12b']:
+    for model_variant in ['27b', '4b', '12b']:
     # for model_variant in ['4b', '27b']:
 
         for dtype in [torch.bfloat16, torch.float32]:
@@ -210,6 +210,7 @@ def main():
 
             for use_fast in [True, False]:
                 for device in ['cuda', 'cpu']:
+                # for device in ['cpu']:
 
                     if device == 'cuda' and torch.cuda.is_available() == False:
                         continue
