@@ -16,9 +16,20 @@ Now put your HF token in `hf_token.txt`
 
 # Results
 
+## Results summary
+
+We will outline a few numbers here:
+- **GPU for 27b with use_fast=True: TTFT time=160ms, preprocessing time=32ms, preprocessing/TTFT=20.2%**
+- **CPU for 27b with use_fast=True: TTFT time=4670ms, preprocessing time=41ms, preprocessing/TTFT=0.86%**
+  
+
+## Detailed results
 
 Runs to average/median each datapoint: 10
 Nr warmup runs: 10
+
+Each cell has 3 numbers. To get those numbers we did 10 measurements (with 10 warmup iterations). The first number is the median of those 10 measurements, the second is the standard deviation of those 10 measurements, and the third number is the value of the largest deviation from the beforementioned median (the median in the same cell).
+
 ## 27b bfloat16
 | Config              | ttft [s]            | preprocessing [s]    | img encoder [s]          | text model prefill [s]   | preproc./ttft [%]   | img. enc. tower time [s]   | img. enc. multi-modal projector time [s]   | preproc. / preproc. with overhead [s]   |
 |:--------------------|:--------------------|:---------------------|:-------------------------|:-------------------------|:--------------------|:---------------------------|:-------------------------------------------|:----------------------------------------|
